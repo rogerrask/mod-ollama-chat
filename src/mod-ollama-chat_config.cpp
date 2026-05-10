@@ -1,6 +1,7 @@
 #include "mod-ollama-chat_config.h"
 #include "mod-ollama-chat_sentiment.h"
 #include "mod-ollama-chat_rag.h"
+#include "mod-ollama-chat-utilities.h"
 #include "Config.h"
 #include "Log.h"
 #include "mod-ollama-chat_api.h"
@@ -151,7 +152,7 @@ float       g_RAGSimilarityThreshold = 0.3f;
 std::string g_RAGPromptTemplate;
 
 class OllamaRAGSystem;
-OllamaRAGSystem* g_RAGSystem = nullptr;
+std::unique_ptr<OllamaRAGSystem> g_RAGSystem = nullptr;
 
 // --------------------------------------------
 // Blacklist: Prefixes for Commands (not chat)
@@ -279,27 +280,11 @@ uint32_t g_TypingSimulationBaseDelay = 1000;     // 1000ms base delay
 uint32_t g_TypingSimulationDelayPerChar = 250;   // 250ms per character (4 chars/sec)
 
 
-static std::vector<std::string> SplitString(const std::string& str, char delim)
-{
-    std::vector<std::string> tokens;
-    std::stringstream ss(str);
-    std::string token;
-    while (std::getline(ss, token, delim))
-    {
-        // Trim whitespace from token
-        size_t start = token.find_first_not_of(" \t");
-        size_t end = token.find_last_not_of(" \t");
-        if (start != std::string::npos && end != std::string::npos)
-            tokens.push_back(token.substr(start, end - start + 1));
-    }
-    return tokens;
-}
-
 // Load Bot Personalities from Database
 void LoadBotPersonalityList()
 {    
     // Let's make sure our user has sourced the required sql file to add the new table
-    QueryResult tableExists = CharacterDatabase.Query("SELECT * FROM information_schema.tables WHERE table_schema = 'acore_characters' AND table_name = 'mod_ollama_chat_personality' LIMIT 1");
+    QueryResult tableExists = CharacterDatabase.Query("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'mod_ollama_chat_personality' LIMIT 1");
     if (!tableExists)
     {
         LOG_ERROR("server.loading", "[Ollama Chat] Please source the required database table first");
@@ -721,26 +706,23 @@ void OllamaChatConfigWorldScript::OnStartup()
 
     // Initialize RAG system if enabled
     if (g_EnableRAG) {
-        if (g_RAGSystem) {
-            delete g_RAGSystem;
-        }
-        g_RAGSystem = new OllamaRAGSystem();
+        g_RAGSystem = std::make_unique<OllamaRAGSystem>();
         if (!g_RAGSystem->Initialize()) {
             LOG_ERROR("server.loading", "[Ollama Chat] Failed to initialize RAG system");
-            delete g_RAGSystem;
-            g_RAGSystem = nullptr;
+            g_RAGSystem.reset();
         } else {
             LOG_INFO("server.loading", "[Ollama Chat] RAG system initialized successfully");
         }
+    } else {
+        g_RAGSystem.reset();
     }
 }
 
 void OllamaChatConfigWorldScript::OnShutdown()
 {
-    // Clean up RAG system
+    // Clean up RAG system (unique_ptr destructs automatically; reset here for explicit logging)
     if (g_RAGSystem) {
-        delete g_RAGSystem;
-        g_RAGSystem = nullptr;
+        g_RAGSystem.reset();
         LOG_INFO("server.loading", "[Ollama Chat] RAG system cleaned up");
     }
 }

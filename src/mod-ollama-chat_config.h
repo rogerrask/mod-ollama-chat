@@ -7,6 +7,7 @@
 #include <deque>
 #include <unordered_map>
 #include <mutex>
+#include <memory>
 #include <ctime>
 #include "ScriptMgr.h"  // Ensure WorldScript is defined
 
@@ -239,7 +240,7 @@ extern float       g_RAGSimilarityThreshold;             // Similarity threshold
 extern std::string g_RAGPromptTemplate;                  // Template for RAG info in prompts
 
 class OllamaRAGSystem;
-extern OllamaRAGSystem* g_RAGSystem;                     // Global RAG system instance
+extern std::unique_ptr<OllamaRAGSystem> g_RAGSystem;      // Global RAG system instance
 
 // --------------------------------------------
 // Event Chatter: Event Type Strings
