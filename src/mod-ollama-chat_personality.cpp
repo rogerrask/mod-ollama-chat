@@ -41,6 +41,9 @@ std::string GetBotPersonality(Player* bot)
     std::string chosenPersonality = g_PersonalityKeysRandomOnly[newIdx];
     g_BotPersonalityList[botGuid] = chosenPersonality;
 
+    std::string escapedChosenPersonality = chosenPersonality;
+    CharacterDatabase.EscapeString(escapedChosenPersonality);
+
     // Save to database if schema supports string (recommend TEXT or VARCHAR column for personality)
     QueryResult tableExists = CharacterDatabase.Query(
         "SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'mod_ollama_chat_personality' LIMIT 1;");
@@ -50,7 +53,7 @@ std::string GetBotPersonality(Player* bot)
     }
     else
     {
-        if (!CharacterDatabase.Execute("INSERT INTO mod_ollama_chat_personality (guid, personality) VALUES ({}, '{}')", botGuid, chosenPersonality))
+        if (!CharacterDatabase.Execute("INSERT INTO mod_ollama_chat_personality (guid, personality) VALUES ({}, '{}')", botGuid, escapedChosenPersonality))
         {
             LOG_ERROR("server.loading", "[Ollama Chat] Failed to persist personality '{}' for bot guid {}", chosenPersonality, botGuid);
         }
@@ -85,12 +88,15 @@ bool SetBotPersonality(Player* bot, const std::string& personality)
         return false;
     }
     
+    std::string escapedPersonality = personality;
+    CharacterDatabase.EscapeString(escapedPersonality);
+
     // Update in memory
     g_BotPersonalityList[botGuid] = personality;
     
     // Update in database
     if (!CharacterDatabase.Execute("REPLACE INTO mod_ollama_chat_personality (guid, personality) VALUES ({}, '{}')",
-                             botGuid, personality))
+                             botGuid, escapedPersonality))
     {
         LOG_ERROR("server.loading", "[Ollama Chat] Failed to persist personality '{}' for bot guid {}", personality, botGuid);
     }
