@@ -2,9 +2,11 @@
 #include "mod-ollama-chat_config.h"  // For g_MaxConcurrentQueries
 #include <thread>
 
-// Constructor: initialize with the configuration value.
+// Constructor: initialize with 0 (unlimited) as a safe default.
+// LoadOllamaChatConfig() calls setMaxConcurrentQueries() after config is read,
+// so reading g_MaxConcurrentQueries here would capture the pre-config value.
 QueryManager::QueryManager()
-    : maxConcurrentQueries(g_MaxConcurrentQueries), currentQueries(0)
+    : maxConcurrentQueries(0), currentQueries(0)
 {
 }
 

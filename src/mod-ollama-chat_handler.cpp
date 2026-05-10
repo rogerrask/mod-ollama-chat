@@ -1864,11 +1864,11 @@ std::string GenerateBotPrompt(Player* bot, std::string playerMessage, Player* pl
         }
         if (g_DebugEnabled) {
             LOG_INFO("server.loading", "[Ollama Chat] RAG Debug - Enabled: {}, System: {}, Message: '{}', Results: {}, Content length: {}",
-                g_EnableRAG, (void*)g_RAGSystem, playerMessage, ragResults.size(), ragContent.length());
+                g_EnableRAG, static_cast<void*>(g_RAGSystem.get()), playerMessage, ragResults.size(), ragContent.length());
         }
     } else if (g_DebugEnabled) {
         LOG_INFO("server.loading", "[Ollama Chat] RAG Debug - Not enabled or no system - Enabled: {}, System: {}",
-            g_EnableRAG, (void*)g_RAGSystem);
+            g_EnableRAG, static_cast<void*>(g_RAGSystem.get()));
     }
 
     std::string extraInfo = SafeFormat(
