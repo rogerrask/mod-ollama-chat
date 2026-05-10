@@ -277,35 +277,28 @@ void SaveBotConversationHistoryToDB()
                 std::string escBotReply = botReply;
                 CharacterDatabase.EscapeString(escBotReply);
 
-                CharacterDatabase.Execute(SafeFormat(
+                CharacterDatabase.Execute(
                     "INSERT IGNORE INTO mod_ollama_chat_history (bot_guid, player_guid, timestamp, player_message, bot_reply) "
                     "VALUES ({}, {}, NOW(), '{}', '{}')",
-                    botGuid, playerGuid, escPlayerMsg, escBotReply));
+                    botGuid, playerGuid, escPlayerMsg, escBotReply);
             }
+
+            // Cleanup: keep only the N most recent entries for this bot/player pair.
+            // Uses a derived-table subquery compatible with MySQL 5.7 and MariaDB 10.1+.
+            // The nested alias (AS recent) is required by MySQL to allow DELETE against
+            // a subquery that itself references the same table.
+            CharacterDatabase.Execute(
+                "DELETE FROM mod_ollama_chat_history "
+                "WHERE bot_guid = {} AND player_guid = {} AND id NOT IN ("
+                "  SELECT id FROM ("
+                "    SELECT id FROM mod_ollama_chat_history"
+                "    WHERE bot_guid = {} AND player_guid = {}"
+                "    ORDER BY timestamp DESC LIMIT {}"
+                "  ) AS recent"
+                ")",
+                botGuid, playerGuid, botGuid, playerGuid, g_MaxConversationHistory);
         }
     }
-
-    // Cleanup: keep only the N most recent entries per bot/player pair
-    std::string cleanupQuery = R"SQL(
-        WITH ranked_history AS (
-            SELECT
-                bot_guid,
-                player_guid,
-                timestamp,
-                ROW_NUMBER() OVER (
-                    PARTITION BY bot_guid, player_guid
-                    ORDER BY timestamp DESC
-                ) as rn
-            FROM mod_ollama_chat_history
-        )
-        DELETE FROM mod_ollama_chat_history
-        WHERE (bot_guid, player_guid, timestamp) IN (
-            SELECT bot_guid, player_guid, timestamp
-            FROM ranked_history
-            WHERE rn > {}
-        );
-    )SQL";
-    CharacterDatabase.Execute(SafeFormat(cleanupQuery, g_MaxConversationHistory));
 }
 
 // Called when a bot sends a message (random chatter or other bot-initiated messages)
